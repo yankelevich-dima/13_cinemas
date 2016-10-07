@@ -5,14 +5,15 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 from bs4 import BeautifulSoup
 
-KINOPOISK_TMPL = 'https://www.kinopoisk.ru/index.php?first=yes&kp_query={} {}'
+KINOPOISK_URL = 'https://www.kinopoisk.ru/index.php'
 MOVIES_COUNT = 10
 CINEMAS_MIN_COUNT = 20
+POOL_SIZE = 20
 
 
 def fetch_afisha_page():
     r = requests.get('http://www.afisha.ru/msk/schedule_cinema/')
-    if r.status_code == 200:
+    if r.status_code == requests.codes.ok:
         return r.content
 
 
@@ -30,7 +31,11 @@ def parse_afisha_list(raw_html):
 def fetch_movie_info(movie):
     movie_title, cinemas_count = movie
     current_year = date.today().year
-    r = requests.get(KINOPOISK_TMPL.format(movie_title, current_year))
+    payload = {
+        'first': 'yes',
+        'kp_query': '{} {}'.format(movie_title, current_year),
+    }
+    r = requests.get(KINOPOISK_URL, params=payload)
 
     soup = BeautifulSoup(r.content, 'html.parser')
     rating = soup.select('.rating_ball')
@@ -50,7 +55,7 @@ def fetch_movie_info(movie):
 
 
 def update_movies_info(movies):
-    pool = ThreadPool(20)
+    pool = ThreadPool(POOL_SIZE)
     res = pool.map(lambda x: fetch_movie_info(x), movies)
     pool.close()
     pool.join()
